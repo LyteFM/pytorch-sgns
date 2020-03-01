@@ -91,6 +91,9 @@ ENV/
 .spyderproject
 .spyproject
 
+# Pycharm settings
+.idea
+
 # Rope project settings
 .ropeproject
 
@@ -104,5 +107,6 @@ ENV/
 *.dat
 *.pt
 data/
+pts/
 result/
 .DS_Store

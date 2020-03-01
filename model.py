@@ -61,6 +61,26 @@ class SGNS(nn.Module):
             self.weights = FT(wf)
 
     def forward(self, iword, owords):
+        """
+        - retrieve negative samples at random from the vocabulary
+        - forward the current, context and negative words to the embeddings layer
+        - return mean of the LogSigmoid-loss for the two independent classifications of positive examples and negative
+          samples, evaluating the dot-product via batch matrix multiplication
+        todo: logistic loss instead of LogSigmoid
+
+        Parameters
+        ----------
+        iword : FloatTensor
+            minibatch of current words $w_t$
+        owords : FloatTensor
+            minibatch of context words $w_c$
+
+        Returns
+        -------
+        FloatTensor
+            minibatch of the loss
+
+        """
         batch_size = iword.size()[0]
         context_size = owords.size()[1]
         if self.weights is not None:
