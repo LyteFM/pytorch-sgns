@@ -5,6 +5,8 @@ import codecs
 import pickle
 import argparse
 
+from nltk.util import everygrams
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -14,15 +16,17 @@ def parse_args():
     parser.add_argument('--unk', type=str, default='<UNK>', help="UNK token")
     parser.add_argument('--window', type=int, default=5, help="window size")
     parser.add_argument('--max_vocab', type=int, default=20000, help="maximum number of vocab")
+    parser.add_argument('--ngrams', action='store_true', help="for n-gram based training")
     return parser.parse_args()
 
 
 class Preprocess(object):
 
-    def __init__(self, window=5, unk='<UNK>', data_dir='./data/'):
+    def __init__(self, window=5, unk='<UNK>', data_dir='./data/', ngrams=False):
         self.window = window
         self.unk = unk
         self.data_dir = data_dir
+        self.use_ngrams = ngrams
 
     def skipgram(self, sentence, i):
         iword = sentence[i]
@@ -49,6 +53,34 @@ class Preprocess(object):
         self.idx2word = [self.unk] + sorted(self.wc, key=self.wc.get, reverse=True)[:max_vocab - 1]
         self.word2idx = {self.idx2word[idx]: idx for idx, _ in enumerate(self.idx2word)}
         self.vocab = set([word for word in self.word2idx])
+
+        if self.use_ngrams:
+            self.ngram_idx2ngram = []
+            self.ngram2ngram_idx = dict()
+            self.word_idx2ngrams = [list(map(''.join, everygrams(w, min_len=3, max_len=6))) for w in (f'<{x}>' for x in self.idx2word)]
+            self.word_idx2corresp_ngram = []
+
+            for i, ngrams in enumerate(self.word_idx2ngrams):
+                full = f'<{self.idx2word[i]}>'
+                if ngrams[-1] != full:
+                    ngrams.append(full)
+                for ngram in ngrams:
+                    if ngram not in self.ngram2ngram_idx:
+                        curr_ngram_idx = len(self.ngram_idx2ngram)
+                        self.ngram2ngram_idx[ngram] = curr_ngram_idx
+                        self.ngram_idx2ngram.append(ngram)
+                        if ngram == full:
+                            self.word_idx2corresp_ngram.append(curr_ngram_idx)
+            self.word_idx2ngram_indices = []
+            for i, ngrams in enumerate(self.word_idx2ngrams):
+                self.word_idx2ngram_indices.append([self.ngram2ngram_idx[x] for x in ngrams])
+
+            pickle.dump(self.word_idx2ngrams, open(os.path.join(self.data_dir, 'word_idx2ngrams.dat'), 'wb'))
+            pickle.dump(self.ngram2ngram_idx, open(os.path.join(self.data_dir, 'ngram2ngram_idx.dat'), 'wb'))
+            pickle.dump(self.ngram_idx2ngram, open(os.path.join(self.data_dir, 'ngram_idx2ngram.dat'), 'wb'))
+            pickle.dump(self.word_idx2ngram_indices, open(os.path.join(self.data_dir, 'word_idx2ngram_indices.dat'), 'wb'))
+            pickle.dump(self.word_idx2corresp_ngram, open(os.path.join(self.data_dir, 'word_idx2corresp_ngram.dat'), 'wb'))
+
         pickle.dump(self.wc, open(os.path.join(self.data_dir, 'wc.dat'), 'wb'))
         pickle.dump(self.vocab, open(os.path.join(self.data_dir, 'vocab.dat'), 'wb'))
         pickle.dump(self.idx2word, open(os.path.join(self.data_dir, 'idx2word.dat'), 'wb'))
@@ -83,6 +115,6 @@ class Preprocess(object):
 
 if __name__ == '__main__':
     args = parse_args()
-    preprocess = Preprocess(window=args.window, unk=args.unk, data_dir=args.data_dir)
+    preprocess = Preprocess(window=args.window, unk=args.unk, data_dir=args.data_dir, ngrams=args.ngrams)
     preprocess.build(args.vocab, max_vocab=args.max_vocab)
     preprocess.convert(args.corpus)

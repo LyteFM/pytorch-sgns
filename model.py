@@ -49,16 +49,20 @@ class Word2Vec(Bundler):
 
 class SGNS(nn.Module):
 
-    def __init__(self, embedding, vocab_size=20000, n_negs=20, weights=None):
+    def __init__(self, embedding, vocab_size=20000, n_negs=20, weights=None, ngram_list=None):
         super(SGNS, self).__init__()
         self.embedding = embedding
         self.vocab_size = vocab_size
         self.n_negs = n_negs
         self.weights = None
+        self.ngrams = None
         if weights is not None:
             wf = np.power(weights, 0.75)
             wf = wf / wf.sum()
             self.weights = FT(wf)
+        if ngram_list is not None:
+            self.ngrams = ngram_list
+            self.largest = len(max(ngram_list, key=lambda x: len(x)))
 
     def forward(self, iword, owords):
         """
@@ -66,7 +70,7 @@ class SGNS(nn.Module):
         - forward the current, context and negative words to the embeddings layer
         - return mean of the LogSigmoid-loss for the two independent classifications of positive examples and negative
           samples, evaluating the dot-product via batch matrix multiplication
-        todo: logistic loss instead of LogSigmoid
+        todo: logistic loss instead of LogSigmoid; use weights based on frequency
 
         Parameters
         ----------
@@ -87,9 +91,30 @@ class SGNS(nn.Module):
             nwords = t.multinomial(self.weights, batch_size * context_size * self.n_negs, replacement=True).view(batch_size, -1)
         else:
             nwords = FT(batch_size, context_size * self.n_negs).uniform_(0, self.vocab_size - 1).long()
-        ivectors = self.embedding.forward_i(iword).unsqueeze(2)
+        # don't just use iword, get the indices of the n-grams. Problem: not same size anymore, can't minibatch properly
+        # solution: fill with zeros, len as for the one with most embeddings.
+        if self.ngrams is not None:
+            ivectors = t.zeros((batch_size, self.embedding.embedding_size, self.largest))
+            for i, w_idx in enumerate(iword):
+                i_fw = self.embedding.forward_i(self.ngrams[w_idx])  # tensor of size (num_ngrams, 300)
+                ivectors[i, :, :len(self.ngrams[w_idx])] = i_fw.t()
+        else:
+            ivectors = self.embedding.forward_i(iword).unsqueeze(2)
         ovectors = self.embedding.forward_o(owords)
         nvectors = self.embedding.forward_o(nwords).neg()
-        oloss = t.bmm(ovectors, ivectors).squeeze().sigmoid().log().mean(1)
-        nloss = t.bmm(nvectors, ivectors).squeeze().sigmoid().log().view(-1, context_size, self.n_negs).sum(2).mean(1)
-        return -(oloss + nloss).mean()
+        #print('ovectors:', ovectors.shape, 'nvectors:', nvectors.shape, 'ivectors:', ivectors.shape)
+        oloss = t.bmm(ovectors, ivectors).squeeze().sigmoid().log()
+        nloss = t.bmm(nvectors, ivectors).squeeze().sigmoid().log()
+        #print('oloss:', oloss.shape, 'nloss:', nloss.shape)
+        if self.ngrams is None:
+            return -(oloss.mean(1) + nloss.view(-1, context_size, self.n_negs).sum(2).mean(1)).mean()
+        else:
+            # what exactly do I want???
+            # 1. for each word w_t, t ∈ batch_size:
+            #      compute the sum over scores for each context VEC (oloss) / negative word VEC (nloss):
+            #        where the score is sum (over all n-gram-vec) of the DOT product between the n-gram-vec and that VEC
+            #        -> already have these 59 values.
+            # -> and return the mean of the whole thing
+            ol_scores = oloss.sum(2).sum(1)
+            nl_scores = nloss.sum(2).sum(1)
+            return - (ol_scores+nl_scores).mean()

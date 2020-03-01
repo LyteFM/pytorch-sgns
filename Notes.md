@@ -16,8 +16,6 @@ loaded pairs from `PermutatedSubsampledCorpus` -> already like that from file.
 
 - `owords:`: context words $w_c$ with $c \in \mathcal{C}_t$ 
 
-
-
 #### Required adjustment:
 
 **some effort**
@@ -41,8 +39,6 @@ loaded pairs from `PermutatedSubsampledCorpus` -> already like that from file.
       - retrieve _all n-gram vectors_ and context
       
       - compute loss based on those
-  
-  
 
 **little effort, might be OK to do differently**
 
@@ -57,8 +53,6 @@ loaded pairs from `PermutatedSubsampledCorpus` -> already like that from file.
 - _„we use a linear decay on the step size”_
 
 - use logistic loss function $l:x ↦ \log(1+e^{-x})$ instead of LogSigmoid
-
-
 
 **just a parameter**
 
