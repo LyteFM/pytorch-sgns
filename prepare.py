@@ -8,8 +8,13 @@ Created on Sun Mar  1 12:16:00 2020
 from nltk.corpus import treebank
 
 # only include actual words & punctuation, write a small training set
-words = [p[0] for p in treebank.tagged_words() if p[1] not in {'-NONE-', '-LRB-', '-RRB-'}]
-print('got corpus of length: ', len(words))
+# todo: actually, use sents!!!
+sents = []
+for s in treebank.tagged_sents():
+    sents.append([p[0] for p in s if p[1] not in {'-NONE-', '-LRB-', '-RRB-', '``', "''"}])
+    pass
+print('got corpus with sentences: ', len(sents))
 
 with open('data/corpus.txt', 'w') as f:
-    f.write(' '.join(words))
+    for s in sents:
+        f.write(' '.join(s) + '\n')

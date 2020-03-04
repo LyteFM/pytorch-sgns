@@ -64,11 +64,7 @@ class SGNS(nn.Module):
                 self.weights = FT(wf)
             else:
                 self.weights = FT(weights)
-
-        if ngram_list is not None:
-            self.ngrams = ngram_list
-            self.largest = len(max(ngram_list, key=lambda x: len(x)))
-            print('init SGNS with max len: ', self.largest)
+        self.ngrams = ngram_list
 
     def forward(self, iword, owords):
         """
@@ -76,7 +72,8 @@ class SGNS(nn.Module):
         - forward the current, context and negative words to the embeddings layer
         - return mean of the LogSigmoid-loss for the two independent classifications of positive examples and negative
           samples, evaluating the dot-product via batch matrix multiplication
-        todo: logistic loss instead of LogSigmoid; use weights based on frequency
+        todo: logistic loss instead of LogSigmoid;
+        NOTE: it's important that the first entry of index 0 is the unknown/ nonexistent character!!!
 
         Parameters
         ----------
@@ -100,18 +97,20 @@ class SGNS(nn.Module):
         # don't just use iword, get the indices of the n-grams. Problem: not same size anymore, can't minibatch properly
         # solution: fill with zeros, len as for the one with most embeddings.
         if self.ngrams is not None:
-            ivectors = t.zeros((batch_size, self.embedding.embedding_size, self.largest))
+            max_wordidx = max(iword, key=lambda w_idx: len(self.ngrams[w_idx]))
+            curr_largest = len(self.ngrams[max_wordidx])
+            ivector_ngramindices = t.zeros((batch_size, curr_largest), dtype=t.long)
             for i, w_idx in enumerate(iword):
-                i_fw = self.embedding.forward_i(self.ngrams[w_idx])  # tensor of size (num_ngrams, 300)
-                ivectors[i, :, :len(self.ngrams[w_idx])] = i_fw.t()
+                ivector_ngramindices[i, :len(self.ngrams[w_idx])] = LT(self.ngrams[w_idx])
+            ivectors = self.embedding.forward_i(ivector_ngramindices).permute(0, 2, 1)
         else:
             ivectors = self.embedding.forward_i(iword).unsqueeze(2)
+
         ovectors = self.embedding.forward_o(owords)
         nvectors = self.embedding.forward_o(nwords).neg()
-        #print('ovectors:', ovectors.shape, 'nvectors:', nvectors.shape, 'ivectors:', ivectors.shape)
         oloss = t.bmm(ovectors, ivectors).squeeze().sigmoid().log()
         nloss = t.bmm(nvectors, ivectors).squeeze().sigmoid().log()
-        #print('oloss:', oloss.shape, 'nloss:', nloss.shape)
+
         if self.ngrams is None:
             return -(oloss.mean(1) + nloss.view(-1, context_size, self.n_negs).sum(2).mean(1)).mean()
         else:
@@ -120,7 +119,7 @@ class SGNS(nn.Module):
             #      compute the sum over scores for each context VEC (oloss) / negative word VEC (nloss):
             #        where the score is sum (over all n-gram-vec) of the DOT product between the n-gram-vec and that VEC
             #        -> already have these 59 values.
-            # -> and return the mean of the whole thing
-            ol_scores = oloss.sum(2).sum(1)
-            nl_scores = nloss.sum(2).sum(1)
+            # -> and return the mean of the whole thing. Need to unsqueeze if just one element.
+            ol_scores = oloss.unsqueeze(2).sum(2).sum(1)
+            nl_scores = nloss.unsqueeze(2).sum(2).sum(1)
             return - (ol_scores+nl_scores).mean()

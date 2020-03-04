@@ -63,3 +63,14 @@ loaded pairs from `PermutatedSubsampledCorpus` -> already like that from file.
 - `ss_t`: `1e-4` (rejection threshold)
 
 - `n_negs`: `5`
+
+
+** First impressions** 
+Takes a very long time to train. One iteration needs approximately 25 seconds vs 9-10 iterations/sec
+when using the reference implementation. Will try to optimise a bit by sorting the corpus.
+
+Unfortunately, this didn't help much... seems to be due more backtracking?
+Or rather: due to looping over the forwarding...
+
+FIXED - problem was a for-loop over the forward passes to the embeddings layer.
+NOTE: It's important that the first entry of index 0 is the unknown/ nonexistent character!!!

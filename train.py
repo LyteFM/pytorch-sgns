@@ -31,9 +31,15 @@ def parse_args():
 
 
 class PermutedSubsampledCorpus(Dataset):
+    """
+    If weigths are passed, a word is only loaded if the random number (between 0/1) is larger than its weight.
+    The each entry in data consists of a word index and the indices of its context words.
+    If trained in ngram mode, pass an ngram_list containing the ngram indices for each word;
+    Then the corpus is permuted and then sorted by ngram length to speed up training.
+    """
 
-    def __init__(self, datapath, ws=None):
-        data = pickle.load(open(datapath, 'rb'))
+    def __init__(self, datapath, ws=None, ngram_list=None):
+        data: list = pickle.load(open(datapath, 'rb'))
         if ws is not None:
             self.data = []
             for iword, owords in data:
@@ -41,6 +47,9 @@ class PermutedSubsampledCorpus(Dataset):
                     self.data.append((iword, owords))
         else:
             self.data = data
+        if ngram_list is not None:
+            random.shuffle(self.data)
+            self.data.sort(key=lambda x: len(ngram_list[x[0]]))
 
     def __len__(self):
         return len(self.data)
@@ -53,14 +62,14 @@ class PermutedSubsampledCorpus(Dataset):
 def train(args):
     idx2word = pickle.load(open(os.path.join(args.data_dir, 'idx2word.dat'), 'rb'))
     if args.ngrams:
-        word_idx2ngram_idx = pickle.load(open(os.path.join(args.data_dir, 'word_idx2ngram_indices.dat'), 'rb'))
+        word_idx2ngram_indices = pickle.load(open(os.path.join(args.data_dir, 'word_idx2ngram_indices.dat'), 'rb'))
         ngram_idx2ngram = pickle.load(open(os.path.join(args.data_dir, 'ngram_idx2ngram.dat'), 'rb'))
         word_idx2corresp_ngram = pickle.load(open(os.path.join(args.data_dir, 'word_idx2corresp_ngram.dat'), 'rb'))
         vocab_size = len(ngram_idx2ngram)
         print('training with', vocab_size, 'ngrams of', len(idx2word), 'words')
     else:
         vocab_size = len(idx2word)
-        word_idx2ngram_idx = None
+        word_idx2ngram_indices = None
     if args.weights:
         if args.ngrams:
             ng_counts = pickle.load(open(os.path.join(args.data_dir, 'ngram2ngramCounts.dat'), 'rb'))
@@ -78,7 +87,7 @@ def train(args):
         os.mkdir(args.save_dir)
     model = Word2Vec(vocab_size=vocab_size, embedding_size=args.e_dim)
     modelpath = os.path.join(args.save_dir, '{}.pt'.format(args.name))
-    sgns = SGNS(embedding=model, vocab_size=vocab_size, n_negs=args.n_negs, weights=weights, ngram_list=word_idx2ngram_idx)
+    sgns = SGNS(embedding=model, vocab_size=vocab_size, n_negs=args.n_negs, weights=weights, ngram_list=word_idx2ngram_indices)
     if os.path.isfile(modelpath) and args.conti:
         sgns.load_state_dict(t.load(modelpath))
     if args.cuda:
@@ -89,9 +98,9 @@ def train(args):
         optim.load_state_dict(t.load(optimpath))
     for epoch in range(1, args.epoch + 1):
         # todo: I want the corpus to be randomized, but sorted by ngram length asc
-        dataset = PermutedSubsampledCorpus(os.path.join(args.data_dir, 'train.dat'))
+        dataset = PermutedSubsampledCorpus(os.path.join(args.data_dir, 'train.dat'), ngram_list=word_idx2ngram_indices)
         # I also need indices of the original words both for i- and owords :)
-        dataloader = DataLoader(dataset, batch_size=args.mb, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=args.mb, shuffle=word_idx2ngram_indices is None)
         total_batches = int(np.ceil(len(dataset) / args.mb))
         pbar = tqdm(dataloader)
         pbar.set_description("[Epoch {}]".format(epoch))
