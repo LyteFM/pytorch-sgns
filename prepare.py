@@ -9,6 +9,7 @@ from nltk.corpus import treebank
 
 # only include actual words & punctuation, write a small training set
 words = [p[0] for p in treebank.tagged_words() if p[1] not in {'-NONE-', '-LRB-', '-RRB-'}]
+print('got corpus of length: ', len(words))
 
 with open('data/corpus.txt', 'w') as f:
-    f.write(' '.join(words[:1000]))
+    f.write(' '.join(words))

@@ -49,24 +49,30 @@ class Word2Vec(Bundler):
 
 class SGNS(nn.Module):
 
-    def __init__(self, embedding, vocab_size=20000, n_negs=20, weights=None, ngram_list=None):
+    def __init__(self, embedding, vocab_size=20000, n_negs=20, weights=None, ngram_list=None, ss_t=0):
         super(SGNS, self).__init__()
         self.embedding = embedding
         self.vocab_size = vocab_size
         self.n_negs = n_negs
         self.weights = None
         self.ngrams = None
+        self.ss_t = ss_t
         if weights is not None:
-            wf = np.power(weights, 0.75)
-            wf = wf / wf.sum()
-            self.weights = FT(wf)
+            if ngram_list is None:
+                wf = np.power(weights, 0.75)
+                wf = wf / wf.sum()
+                self.weights = FT(wf)
+            else:
+                self.weights = FT(weights)
+
         if ngram_list is not None:
             self.ngrams = ngram_list
             self.largest = len(max(ngram_list, key=lambda x: len(x)))
+            print('init SGNS with max len: ', self.largest)
 
     def forward(self, iword, owords):
         """
-        - retrieve negative samples at random from the vocabulary
+        - retrieve indices for negative samples at random from the vocabulary, optionally using weights and a rejection threshold
         - forward the current, context and negative words to the embeddings layer
         - return mean of the LogSigmoid-loss for the two independent classifications of positive examples and negative
           samples, evaluating the dot-product via batch matrix multiplication

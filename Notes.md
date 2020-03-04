@@ -21,16 +21,20 @@ loaded pairs from `PermutatedSubsampledCorpus` -> already like that from file.
 **some effort**
 
 - `window` -> must sample uniformly between 1 and 5 instead of just using a fixed size
+  
+  - I'll keep it fixed, else batching becomes unnecessarily difficult... usign a window of size 3 instead.
 
 - _„probability proportional to the square root of the uni-gram frequency”_
   
   - can specify `weights` when initialising SGNS! adjust the function there.
+    - done.
 
 - Implementation of the `n-grams` and the adjusted scoring function:
   
   - **preprocessing**
     
     - Additional step to compute the n-grams and adding them to the dictionary; Hashing, building representation...
+      - done, but not using hashing
   
   - **training**
     

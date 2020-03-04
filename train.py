@@ -57,15 +57,23 @@ def train(args):
         ngram_idx2ngram = pickle.load(open(os.path.join(args.data_dir, 'ngram_idx2ngram.dat'), 'rb'))
         word_idx2corresp_ngram = pickle.load(open(os.path.join(args.data_dir, 'word_idx2corresp_ngram.dat'), 'rb'))
         vocab_size = len(ngram_idx2ngram)
+        print('training with', vocab_size, 'ngrams of', len(idx2word), 'words')
     else:
         vocab_size = len(idx2word)
         word_idx2ngram_idx = None
-    wc = pickle.load(open(os.path.join(args.data_dir, 'wc.dat'), 'rb'))
-    wf = np.array([wc[word] for word in idx2word])
-    wf = wf / wf.sum()
-    ws = 1 - np.sqrt(args.ss_t / wf)
-    ws = np.clip(ws, 0, 1)
-    weights = wf if args.weights else None
+    if args.weights:
+        if args.ngrams:
+            ng_counts = pickle.load(open(os.path.join(args.data_dir, 'ngram2ngramCounts.dat'), 'rb'))
+            wf = np.array([ng_counts[ngram] for ngram in ngram_idx2ngram])
+        else:
+            wc = pickle.load(open(os.path.join(args.data_dir, 'wc.dat'), 'rb'))
+            wf = np.array([wc[word] for word in idx2word])
+        wf = wf / wf.sum()
+        ws = 1 - np.sqrt(args.ss_t / wf)
+        weights = np.clip(ws, 0, 1)
+        print( np.count_nonzero(weights), 'entries of', len(wf), 'ngrams are nonzero with subsampling threshold', args.ss_t)
+    else:
+        weights = None
     if not os.path.isdir(args.save_dir):
         os.mkdir(args.save_dir)
     model = Word2Vec(vocab_size=vocab_size, embedding_size=args.e_dim)
@@ -80,6 +88,7 @@ def train(args):
     if os.path.isfile(optimpath) and args.conti:
         optim.load_state_dict(t.load(optimpath))
     for epoch in range(1, args.epoch + 1):
+        # todo: I want the corpus to be randomized, but sorted by ngram length asc
         dataset = PermutedSubsampledCorpus(os.path.join(args.data_dir, 'train.dat'))
         # I also need indices of the original words both for i- and owords :)
         dataloader = DataLoader(dataset, batch_size=args.mb, shuffle=True)
@@ -94,7 +103,7 @@ def train(args):
             pbar.set_postfix(loss=loss.item())
     if args.ngrams:
         # todo: only want the actual words :)
-        ngram_idx2vec= model.ivectors.weight.data.cpu().numpy()
+        ngram_idx2vec = model.ivectors.weight.data.cpu().numpy()
         idx2vec = ngram_idx2vec[word_idx2corresp_ngram]
     else:
         idx2vec = model.ivectors.weight.data.cpu().numpy()
