@@ -15,7 +15,6 @@ ud_lang = 'de' # 'en' , 'it
 ud_mode = 'dev'  # 'train', 'test'
 
 
-
 sents = []
 if selected_corpus == 'treebank':
     for s in treebank.tagged_sents():

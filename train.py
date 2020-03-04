@@ -80,7 +80,7 @@ def train(args):
         wf = wf / wf.sum()
         ws = 1 - np.sqrt(args.ss_t / wf)
         weights = np.clip(ws, 0, 1)
-        print( np.count_nonzero(weights), 'entries of', len(wf), 'ngrams are nonzero with subsampling threshold', args.ss_t)
+        print(np.count_nonzero(weights), 'entries of', len(wf), 'ngrams are nonzero with subsampling threshold', args.ss_t)
     else:
         weights = None
     if not os.path.isdir(args.save_dir):
@@ -105,7 +105,7 @@ def train(args):
         pbar = tqdm(dataloader)
         pbar.set_description("[Epoch {}]".format(epoch))
         for iword, owords in pbar:
-            loss = sgns(iword, owords)
+            loss = sgns(iword, owords) # todo: not on the first entry!
             optim.zero_grad()
             loss.backward()
             optim.step()

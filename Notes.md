@@ -1,10 +1,26 @@
+#### Program structure
+
+1. create `corpus.txt` file with space delimeted sentences which are delimited by newlines, using `prepare.py`
+
+2. create pickled data files that are needed for training using `preprocess.py`.
+   
+   - params: `--ngrams --unk "|" --window 3`
+
+3. run `train.py` to traing the word embeddings
+   
+   - params: `--ngrams --n_negs 5 --weights --ss_t "1e-5"`
+   
+   - use additional params for batch size (`--mb`), epochs (`--epoch`)  as you like
+
+Run without `--ngrams` to train reference model.
+
 **What does `preprocess.py` do?**
 
 - `convert` method generates a `skipgram` for each word:
   
   - `owords` is the _context_ from left to right
     
-    - padded with `<UNK>` before and after if not present, since the fixed `window` is taken into account.
+    - padded with `<|>` before and after if not present, since the fixed `window` is taken into account.
 
 - this is then saved into binaries.
 
@@ -16,7 +32,7 @@ loaded pairs from `PermutatedSubsampledCorpus` -> already like that from file.
 
 - `owords:`: context words $w_c$ with $c \in \mathcal{C}_t$ 
 
-#### Required adjustment:
+#### Required adjustments:
 
 **some effort**
 
@@ -44,19 +60,19 @@ loaded pairs from `PermutatedSubsampledCorpus` -> already like that from file.
       
       - compute loss based on those
 
-**little effort, might be OK to do differently**
+**Still todo (maybe)**
 
 - _„When building the word dictionary, we keep the words that appear at least 5 times in the training set“_ 
   
-  - need to maybe reduce that threshold and set other words to _unknown_
+  - need to maybe reduce that threshold. Set the words to _unknown_ (`<|>`)?
 
-- _„we solve our optimization problem by performing SGD“_
+- _„we solve our optimization problem by performing SGD“_ *„we use a linear decay on the step size”*
   
-  - currently using Adam.
+  - currently using Adam. 
 
-- _„we use a linear decay on the step size”_
+- use logistic loss function $l:x ↦ \log(1+e^{-x})$ instead of LogSigmoid!
 
-- use logistic loss function $l:x ↦ \log(1+e^{-x})$ instead of LogSigmoid
+- do not compute gradient on the „_unused_”/ `null` char!
 
 **just a parameter**
 
@@ -64,12 +80,16 @@ loaded pairs from `PermutatedSubsampledCorpus` -> already like that from file.
 
 - `n_negs`: `5`
 
-
-** First impressions** 
+**First impressions** 
 Takes a very long time to train. One iteration needs approximately 25 seconds vs 9-10 iterations/sec
 when using the reference implementation. Will try to optimise a bit by sorting the corpus.
 
 Unfortunately, this didn't help much. In fact's it's not speeding up the training at all!
 
-FIXED - problem was a for-loop over the forward passes to the embeddings layer.
-NOTE: It's important that the first entry of index 0 is the unknown/ nonexistent character!!!
+FIXED - problem was a for-loop over the forward passes to the embeddings layer. Building the Index-Tensor for the whole batch instead made the training faster.
+
+NOTE: It's important that the first entry of index 0 is the unknown/ nonexistent character!!! 
+
+- And it shouldn't be trained...
+
+- And the vector should be initialised as zero-vector...
