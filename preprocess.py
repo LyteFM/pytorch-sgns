@@ -25,10 +25,9 @@ def parse_args():
 
 class Preprocess(object):
 
-    def __init__(self, window=5, unk='<UNK>', data_dir='./data/', ngrams=False, nac='*', rand_window=False):
+    def __init__(self, window=5, unk='<UNK>', data_dir='./data/', ngrams=False, rand_window=False):
         self.window = window
-        self.unk = unk  # for non-existent characters in window
-        self.nac = nac  # may NOT be part of any real ngram; throwaway entry to allow batch training
+        self.unk = unk  # must be the first char of the vocab, will always be zero in the embeddings.
         self.data_dir = data_dir
         self.use_ngrams = ngrams
         self.rand_window = rand_window
@@ -52,7 +51,7 @@ class Preprocess(object):
         curr_window = randint(1, self.window) if self.rand_window else self.window
         left = sentence[max(i - curr_window, 0): i]
         right = sentence[i + 1: i + 1 + curr_window]
-        return iword, [self.unk for _ in range(curr_window - len(left))] + left + right + [self.unk for _ in range(curr_window - len(right))]
+        return iword, [self.unk for _ in range(self.window - len(left))] + left + right + [self.unk for _ in range(self.window - len(right))]
 
     def build(self, filepath, max_vocab=20000):
         print("building vocab...")
@@ -70,7 +69,7 @@ class Preprocess(object):
                 for word in sent:
                     self.wc[word] = self.wc.get(word, 0) + 1
         print("")
-        self.idx2word = [self.nac, self.unk] + sorted(self.wc, key=self.wc.get, reverse=True)[:max_vocab - 1]
+        self.idx2word = [self.unk] + sorted(self.wc, key=self.wc.get, reverse=True)[:max_vocab - 1]
         self.word2idx = {self.idx2word[idx]: idx for idx, _ in enumerate(self.idx2word)}
         self.vocab = set([word for word in self.word2idx])
 

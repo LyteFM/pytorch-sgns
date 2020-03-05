@@ -4,7 +4,7 @@
 
 2. create pickled data files that are needed for training using `preprocess.py`.
    
-   - params: `--ngrams --unk "|" --window 3`
+   - params: `--ngrams --unk "|" --rand_window`
 
 3. run `train.py` to traing the word embeddings
    
@@ -64,7 +64,7 @@ loaded pairs from `PermutatedSubsampledCorpus` -> already like that from file.
 
 - _„When building the word dictionary, we keep the words that appear at least 5 times in the training set“_ 
   
-  - need to maybe reduce that threshold. Set the words to _unknown_ (`<|>`)?
+  - need to maybe reduce that threshold. Set the words to _unknown_ (`<|>`)? It might be smart to use a different character, though.
 
 - _„we solve our optimization problem by performing SGD“_ *„we use a linear decay on the step size”*
   
@@ -72,7 +72,9 @@ loaded pairs from `PermutatedSubsampledCorpus` -> already like that from file.
 
 - use logistic loss function $l:x ↦ \log(1+e^{-x})$ instead of LogSigmoid!
 
-- do not compute gradient on the „_unused_”/ `null` char!
+- do not compute gradient on the unknown char!
+  - Actually, this is already implemented. Passing a `padding_idx` to an `nn.Embedding` has exactly that effect.
+  
 
 **just a parameter**
 

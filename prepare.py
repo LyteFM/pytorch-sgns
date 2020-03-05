@@ -35,8 +35,8 @@ else:
             if len(curr) != 0:
                 sents.append(curr)
             curr = []
-        # neither the unknown character (I'm using |) nor the nonexisting char (I'm using *) may be in corpus.
-        if '*' not in w[1] and '|' not in w[1] and (len(w[1]) == 1 or any(c.isalnum() for c in w[1])):
+        # the unknown character (I'm using |) may not be in corpus.
+        if '|' not in w[1] and (len(w[1]) == 1 or any(c.isalnum() for c in w[1])):
             curr.append(w[1])
 print('got corpus with sentences: ', len(sents))
 
