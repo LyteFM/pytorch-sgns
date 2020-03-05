@@ -64,7 +64,9 @@ loaded pairs from `PermutatedSubsampledCorpus` -> already like that from file.
 
 - _„When building the word dictionary, we keep the words that appear at least 5 times in the training set“_ 
   
-  - need to maybe reduce that threshold. Set the words to _unknown_ (`<|>`)? It might be smart to use a different character, though.
+  - need to reduce that threshold, depending on our corpus. The words are set to _unknown_ (`<|>`) and will have no effect on the computation 
+   of the embeddings vector. It might be a better approach to use a different character, thought. Or, in the case of
+   tagged corpora and if the same tags could be assigned for new sentences on which the embeds are used, to use the tags.
 
 - _„we solve our optimization problem by performing SGD“_ *„we use a linear decay on the step size”*
   
@@ -95,3 +97,19 @@ NOTE: It's important that the first entry of index 0 is the unknown/ nonexistent
 - And it shouldn't be trained...
 
 - And the vector should be initialised as zero-vector...
+
+
+** Development notes**
+
+computation of loss:
+
+```
+ # what exactly do I want???
+ # 1. for each word w_t, t ∈ batch_size:
+ #      compute the sum over scores for each context VEC (oloss) / negative word VEC (nloss):
+ #        where the score is sum (over all n-gram-vec) of the DOT product between the n-gram-vec and that VEC
+ #        -> already have these 59 values.
+ # -> and return the mean of the whole thing. Need to unsqueeze if just one element.
+```
+
+           

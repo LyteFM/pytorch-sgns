@@ -6,6 +6,7 @@ import random
 import argparse
 import torch as t
 import numpy as np
+import time
 
 from tqdm import tqdm
 from torch.optim import Adam
@@ -27,6 +28,7 @@ def parse_args():
     parser.add_argument('--weights', action='store_true', help="use weights for negative sampling")
     parser.add_argument('--cuda', action='store_true', help="use CUDA")
     parser.add_argument('--ngrams', action='store_true', default=False, help="use ngrams for training")
+    parser.add_argument('--loss', type=str, default='sigmoid', help="specify loss function: sigmoid or logistic")
     return parser.parse_args()
 
 
@@ -96,8 +98,8 @@ def train(args):
     optimpath = os.path.join(args.save_dir, '{}.optim.pt'.format(args.name))
     if os.path.isfile(optimpath) and args.conti:
         optim.load_state_dict(t.load(optimpath))
+    start = time.time()
     for epoch in range(1, args.epoch + 1):
-        # todo: I want the corpus to be randomized, but sorted by ngram length asc
         dataset = PermutedSubsampledCorpus(os.path.join(args.data_dir, 'train.dat'), ngram_list=word_idx2ngram_indices)
         # I also need indices of the original words both for i- and owords :)
         dataloader = DataLoader(dataset, batch_size=args.mb, shuffle=word_idx2ngram_indices is None)
@@ -105,13 +107,14 @@ def train(args):
         pbar = tqdm(dataloader)
         pbar.set_description("[Epoch {}]".format(epoch))
         for iword, owords in pbar:
-            loss = sgns(iword, owords) # todo: not on the first entry!
+            loss = sgns(iword, owords)
             optim.zero_grad()
             loss.backward()
             optim.step()
             pbar.set_postfix(loss=loss.item())
+    print('training took', (time.time()-start)//60, 'minutes.')
     if args.ngrams:
-        # todo: only want the actual words :)
+        # only want the actual words :)
         ngram_idx2vec = model.ivectors.weight.data.cpu().numpy()
         idx2vec = ngram_idx2vec[word_idx2corresp_ngram]
     else:

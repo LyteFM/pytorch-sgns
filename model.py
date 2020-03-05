@@ -6,6 +6,8 @@ import torch.nn as nn
 
 from torch import LongTensor as LT
 from torch import FloatTensor as FT
+from torch import logsumexp
+from torch.nn.functional import logsigmoid
 
 
 class Bundler(nn.Module):
@@ -49,7 +51,7 @@ class Word2Vec(Bundler):
 
 class SGNS(nn.Module):
 
-    def __init__(self, embedding, vocab_size=20000, n_negs=20, weights=None, ngram_list=None, ss_t=0):
+    def __init__(self, embedding, vocab_size=20000, n_negs=20, weights=None, ngram_list=None, ss_t=0, loss='sigmoid'):
         super(SGNS, self).__init__()
         self.embedding = embedding
         self.vocab_size = vocab_size
@@ -57,6 +59,10 @@ class SGNS(nn.Module):
         self.weights = None
         self.ngrams = None
         self.ss_t = ss_t
+        if loss == 'sigmoid':
+            self.loss = logsigmoid
+        elif loss == 'logistic':
+            self.loss = lambda x: logsumexp(t.stack((t.zeros_like(x), x.neg())), 0)
         if weights is not None:
             if ngram_list is None:
                 wf = np.power(weights, 0.75)
@@ -72,8 +78,7 @@ class SGNS(nn.Module):
         - forward the current, context and negative words to the embeddings layer
         - return mean of the LogSigmoid-loss for the two independent classifications of positive examples and negative
           samples, evaluating the dot-product via batch matrix multiplication
-        todo: logistic loss instead of LogSigmoid;
-        NOTE: it's important that the first entry of index 0 is the unknown/ nonexistent character!!!
+        NOTE: it's important that the first entry of index 0 is the unknown  character.
 
         Parameters
         ----------
@@ -108,18 +113,12 @@ class SGNS(nn.Module):
 
         ovectors = self.embedding.forward_o(owords)
         nvectors = self.embedding.forward_o(nwords).neg()
-        oloss = t.bmm(ovectors, ivectors).squeeze().sigmoid().log()
-        nloss = t.bmm(nvectors, ivectors).squeeze().sigmoid().log()
+        oloss = self.loss(t.bmm(ovectors, ivectors).squeeze())
+        nloss = self.loss(t.bmm(nvectors, ivectors).squeeze())
 
         if self.ngrams is None:
             return -(oloss.mean(1) + nloss.view(-1, context_size, self.n_negs).sum(2).mean(1)).mean()
         else:
-            # what exactly do I want???
-            # 1. for each word w_t, t ∈ batch_size:
-            #      compute the sum over scores for each context VEC (oloss) / negative word VEC (nloss):
-            #        where the score is sum (over all n-gram-vec) of the DOT product between the n-gram-vec and that VEC
-            #        -> already have these 59 values.
-            # -> and return the mean of the whole thing. Need to unsqueeze if just one element.
-            ol_scores = oloss.unsqueeze(2).sum(2).sum(1)
-            nl_scores = nloss.unsqueeze(2).sum(2).sum(1)
+            ol_scores = oloss.unsqueeze(2).sum(2).mean(1)
+            nl_scores = nloss.unsqueeze(2).sum(2).mean(1)
             return - (ol_scores+nl_scores).mean()

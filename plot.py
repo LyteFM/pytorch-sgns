@@ -17,16 +17,17 @@ def parse_args():
     parser.add_argument('--result_dir', type=str, default='./result/', help="result directory path")
     parser.add_argument('--model', type=str, default='tsne', choices=['pca', 'tsne'], help="model for visualization")
     parser.add_argument('--top_k', type=int, default=1000, help="scatter top-k words")
+    parser.add_argument('--skip_k', type=int, default=0, help="skip the k most common words before scattering top-k")
     return parser.parse_args()
 
 
 def plot(args):
     wc = pickle.load(open(os.path.join(args.data_dir, 'wc.dat'), 'rb'))
-    words = sorted(wc, key=wc.get, reverse=True)[:args.top_k]
+    words = sorted(wc, key=wc.get, reverse=True)[args.skip_k:args.top_k]
     if args.model == 'pca':
         model = PCA(n_components=2)
     elif args.model == 'tsne':
-        model = TSNE(n_components=2, perplexity=30, init='pca', method='exact', n_iter=5000)
+        model = TSNE(n_components=2, perplexity=30, init='pca', method='exact', n_iter=1000)
     word2idx = pickle.load(open('data/word2idx.dat', 'rb'))
     idx2vec = pickle.load(open('data/idx2vec.dat', 'rb'))
     X = [idx2vec[word2idx[word]] for word in words]
