@@ -112,4 +112,8 @@ computation of loss:
  # -> and return the mean of the whole thing. Need to unsqueeze if just one element.
 ```
 
+„Imagine a distribution of words based on how many times each word appeared in a corpus, denoted as $U(w)$ 
+(this is called unigram distribution).” - https://aegis4048.github.io/optimize_computational_efficiency_of_skip-gram_with_negative_sampling
+
+
            

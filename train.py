@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('--cuda', action='store_true', help="use CUDA")
     parser.add_argument('--ngrams', action='store_true', default=False, help="use ngrams for training")
     parser.add_argument('--loss', type=str, default='sigmoid', help="specify loss function: sigmoid or logistic")
+    parser.add_argument('--lr', type=float, default=1e-3, help="learning rate")
     return parser.parse_args()
 
 
@@ -63,45 +64,41 @@ class PermutedSubsampledCorpus(Dataset):
 
 def train(args):
     idx2word = pickle.load(open(os.path.join(args.data_dir, 'idx2word.dat'), 'rb'))
+    vocab_size = len(idx2word)
+    word_counts = pickle.load(open(os.path.join(args.data_dir, 'wc.dat'), 'rb'))
+    word_freqs = np.array([word_counts[word] for word in idx2word])
+    word_freqs = word_freqs / word_freqs.sum()
+
     if args.ngrams:
         word_idx2ngram_indices = pickle.load(open(os.path.join(args.data_dir, 'word_idx2ngram_indices.dat'), 'rb'))
         ngram_idx2ngram = pickle.load(open(os.path.join(args.data_dir, 'ngram_idx2ngram.dat'), 'rb'))
         word_idx2corresp_ngram = pickle.load(open(os.path.join(args.data_dir, 'word_idx2corresp_ngram.dat'), 'rb'))
-        vocab_size = len(ngram_idx2ngram)
-        print('training with', vocab_size, 'ngrams of', len(idx2word), 'words')
+        embeds_rows = len(ngram_idx2ngram)
+        print('training with', embeds_rows, 'ngrams of', len(idx2word), 'words')
     else:
-        vocab_size = len(idx2word)
+        embeds_rows = vocab_size
         word_idx2ngram_indices = None
-    if args.weights:
-        if args.ngrams:
-            ng_counts = pickle.load(open(os.path.join(args.data_dir, 'ngram2ngramCounts.dat'), 'rb'))
-            wf = np.array([ng_counts[ngram] for ngram in ngram_idx2ngram])
-        else:
-            wc = pickle.load(open(os.path.join(args.data_dir, 'wc.dat'), 'rb'))
-            wf = np.array([wc[word] for word in idx2word])
-        wf = wf / wf.sum()
-        ws = 1 - np.sqrt(args.ss_t / wf)
-        weights = np.clip(ws, 0, 1)
-        print(np.count_nonzero(weights), 'entries of', len(wf), 'ngrams are nonzero with subsampling threshold', args.ss_t)
-    else:
-        weights = None
+        word_idx2corresp_ngram = None
     if not os.path.isdir(args.save_dir):
         os.mkdir(args.save_dir)
-    model = Word2Vec(vocab_size=vocab_size, embedding_size=args.e_dim)
+    model = Word2Vec(vocab_size=embeds_rows, embedding_size=args.e_dim)
     modelpath = os.path.join(args.save_dir, '{}.pt'.format(args.name))
-    sgns = SGNS(embedding=model, vocab_size=vocab_size, n_negs=args.n_negs, weights=weights, ngram_list=word_idx2ngram_indices)
+    sgns = SGNS(model, vocab_size, word_freqs, args.ss_t, n_negs=args.n_negs, use_weights=args.weights,
+                ngrams_list=word_idx2ngram_indices, corresp_ngram=word_idx2corresp_ngram)
     if os.path.isfile(modelpath) and args.conti:
         sgns.load_state_dict(t.load(modelpath))
     if args.cuda:
         sgns = sgns.cuda()
-    optim = Adam(sgns.parameters())
+    optim = Adam(sgns.parameters(), lr=args.lr)
     optimpath = os.path.join(args.save_dir, '{}.optim.pt'.format(args.name))
     if os.path.isfile(optimpath) and args.conti:
         optim.load_state_dict(t.load(optimpath))
     start = time.time()
     for epoch in range(1, args.epoch + 1):
+        total_loss = 0
+        sgns.sample_neg_corpus()
         dataset = PermutedSubsampledCorpus(os.path.join(args.data_dir, 'train.dat'), ngram_list=word_idx2ngram_indices)
-        # I also need indices of the original words both for i- and owords :)
+        # todo: it's also fine to shuffle here, just saving a few empty multiplications this way
         dataloader = DataLoader(dataset, batch_size=args.mb, shuffle=word_idx2ngram_indices is None)
         total_batches = int(np.ceil(len(dataset) / args.mb))
         pbar = tqdm(dataloader)
@@ -111,7 +108,8 @@ def train(args):
             optim.zero_grad()
             loss.backward()
             optim.step()
-            pbar.set_postfix(loss=loss.item())
+            total_loss += loss.item()
+            pbar.set_postfix(loss=loss.item(), total=total_loss)
     print('training took', (time.time()-start)//60, 'minutes.')
     if args.ngrams:
         # only want the actual words :)

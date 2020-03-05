@@ -51,26 +51,48 @@ class Word2Vec(Bundler):
 
 class SGNS(nn.Module):
 
-    def __init__(self, embedding, vocab_size=20000, n_negs=20, weights=None, ngram_list=None, ss_t=0, loss='sigmoid'):
+    def __init__(self, embedding, vocab_size, word_freqs, ss_t, n_negs=20, use_weights=False, ngrams_list=None, corresp_ngram=None, loss='sigmoid'):
         super(SGNS, self).__init__()
         self.embedding = embedding
         self.vocab_size = vocab_size
         self.n_negs = n_negs
         self.weights = None
-        self.ngrams = None
-        self.ss_t = ss_t
+        self.word_idx2ngram_indices = None
         if loss == 'sigmoid':
             self.loss = logsigmoid
         elif loss == 'logistic':
             self.loss = lambda x: logsumexp(t.stack((t.zeros_like(x), x.neg())), 0)
-        if weights is not None:
-            if ngram_list is None:
-                wf = np.power(weights, 0.75)
-                wf = wf / wf.sum()
-                self.weights = FT(wf)
-            else:
-                self.weights = FT(weights)
-        self.ngrams = ngram_list
+        self.word_idx2ngram_indices = ngrams_list
+        self.word_idx2ngram_idx = LT(corresp_ngram) if ngrams_list else None
+        self.word_freqs = word_freqs
+        self.discard_probs = np.clip(1 - np.sqrt(ss_t / self.word_freqs), 0, 1)
+        self.neg_corpus = None
+        self.use_weights = use_weights
+        self.use_ngrams = ngrams_list is not None
+        self.sample_neg_corpus(True)
+
+    def sample_neg_corpus(self, verbose=False):
+        neg_mask = np.random.rand(self.vocab_size) > self.discard_probs
+        self.neg_corpus = t.from_numpy(np.arange(self.vocab_size)[neg_mask])
+        if self.use_weights:
+            weights = self.word_freqs[neg_mask]
+            # Raising unigram frequency to power of 3/4 seems to yield best results, subwords paper used sqrt instead
+            wf = np.sqrt(weights) if self.use_ngrams is None else np.power(weights, 0.75)
+            wf = wf / wf.sum()
+            self.weights = t.from_numpy(wf)
+        if verbose:
+            print('kept', len(self.neg_corpus), 'words of', len(self.word_freqs), 'for subsampling.')
+
+    def _sample_context(self, batch_size, context_size):
+        if self.use_weights:
+            neg_choice = t.multinomial(self.weights, batch_size * context_size * self.n_negs, replacement=True).view(batch_size, -1)
+        else:
+            neg_choice = FT(batch_size, context_size * self.n_negs).uniform_(0, self.neg_corpus - 1).long()
+        neg_words = self.neg_corpus[neg_choice]
+        if self.use_ngrams:
+            return neg_words
+        else:
+            return self.word_idx2ngram_idx[neg_words]
 
     def forward(self, iword, owords):
         """
@@ -95,18 +117,15 @@ class SGNS(nn.Module):
         """
         batch_size = iword.size()[0]
         context_size = owords.size()[1]
-        if self.weights is not None:
-            nwords = t.multinomial(self.weights, batch_size * context_size * self.n_negs, replacement=True).view(batch_size, -1)
-        else:
-            nwords = FT(batch_size, context_size * self.n_negs).uniform_(0, self.vocab_size - 1).long()
+        nwords = self._sample_context(batch_size, context_size)
         # don't just use iword, get the indices of the n-grams. Problem: not same size anymore, can't minibatch properly
         # solution: fill with zeros, len as for the one with most embeddings.
-        if self.ngrams is not None:
-            max_wordidx = max(iword, key=lambda w_idx: len(self.ngrams[w_idx]))
-            curr_largest = len(self.ngrams[max_wordidx])
+        if self.use_ngrams:
+            max_wordidx = max(iword, key=lambda ii: len(self.word_idx2ngram_indices[ii]))
+            curr_largest = len(self.word_idx2ngram_indices[max_wordidx])
             ivector_ngramindices = t.zeros((batch_size, curr_largest), dtype=t.long)
             for i, w_idx in enumerate(iword):
-                ivector_ngramindices[i, :len(self.ngrams[w_idx])] = LT(self.ngrams[w_idx])
+                ivector_ngramindices[i, :len(self.word_idx2ngram_indices[w_idx])] = LT(self.word_idx2ngram_indices[w_idx])
             ivectors = self.embedding.forward_i(ivector_ngramindices).permute(0, 2, 1)
         else:
             ivectors = self.embedding.forward_i(iword).unsqueeze(2)
@@ -116,9 +135,10 @@ class SGNS(nn.Module):
         oloss = self.loss(t.bmm(ovectors, ivectors).squeeze())
         nloss = self.loss(t.bmm(nvectors, ivectors).squeeze())
 
-        if self.ngrams is None:
-            return -(oloss.mean(1) + nloss.view(-1, context_size, self.n_negs).sum(2).mean(1)).mean()
-        else:
+        if self.use_ngrams:
             ol_scores = oloss.unsqueeze(2).sum(2).mean(1)
             nl_scores = nloss.unsqueeze(2).sum(2).mean(1)
-            return - (ol_scores+nl_scores).mean()
+            return - (ol_scores + nl_scores).mean()
+        else:
+            return -(oloss.mean(1) + nloss.view(-1, context_size, self.n_negs).sum(2).mean(1)).mean()
+
