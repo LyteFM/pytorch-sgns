@@ -89,7 +89,7 @@ class SGNS(nn.Module):
         else:
             neg_choice = FT(batch_size, context_size * self.n_negs).uniform_(0, self.neg_corpus - 1).long()
         neg_words = self.neg_corpus[neg_choice]
-        return self.self.word_idx2ngram_idx[neg_words] if self.use_ngrams else neg_words
+        return self.word_idx2ngram_idx[neg_words] if self.use_ngrams else neg_words
 
     def forward(self, iword, owords):
         """

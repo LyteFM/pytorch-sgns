@@ -10,11 +10,15 @@ from nltk.util import everygrams
 from random import randint
 
 
-def parse_args():
+def parse_args(lan, dataset):
+    """
+    lan: language, e.g. 'de', 'en', 'it'
+    dataset: set of data, e.g. 'dev', 'test', 'train'
+    """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', type=str, default='./data/', help="data directory path")
-    parser.add_argument('--vocab', type=str, default='./data/corpus.txt', help="corpus path for building vocab")
-    parser.add_argument('--corpus', type=str, default='./data/corpus.txt', help="corpus path")
+    parser.add_argument('--data_dir', type=str, default=f'./data/{lan}/', help="data directory path")
+    parser.add_argument('--vocab', type=str, default=f'./data/{lan}/corpus_{dataset}.txt', help="corpus path for building vocab")
+    parser.add_argument('--corpus', type=str, default=f'./data/{lan}/corpus_{dataset}.txt', help="corpus path")
     parser.add_argument('--unk', type=str, default='<UNK>', help="UNK token")
     parser.add_argument('--window', type=int, default=5, help="window size")
     parser.add_argument('--max_vocab', type=int, default=20000,
@@ -137,7 +141,9 @@ class Preprocess(object):
 
 
 if __name__ == '__main__':
-    args = parse_args()
+    lan = 'de'
+    dataset = 'train'
+    args = parse_args(lan, dataset)
     preprocess = Preprocess(window=args.window, unk=args.unk, data_dir=args.data_dir, ngrams=args.ngrams)
     preprocess.build(args.vocab, max_vocab=args.max_vocab, min_freq=args.min_freq)
     preprocess.convert(args.corpus)

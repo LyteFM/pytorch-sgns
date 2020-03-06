@@ -14,11 +14,11 @@ from torch.utils.data import Dataset, DataLoader
 from model import Word2Vec, SGNS
 
 
-def parse_args():
+def parse_args(lan):
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, default='sgns', help="model name")
-    parser.add_argument('--data_dir', type=str, default='./data/', help="data directory path")
-    parser.add_argument('--save_dir', type=str, default='./pts/', help="model directory path")
+    parser.add_argument('--data_dir', type=str, default=f'./data/{lan}/', help="data directory path")
+    parser.add_argument('--save_dir', type=str, default=f'./pts/{lan}/', help="model directory path")
     parser.add_argument('--e_dim', type=int, default=300, help="embedding dimension")
     parser.add_argument('--n_negs', type=int, default=20, help="number of negative samples")
     parser.add_argument('--epoch', type=int, default=100, help="number of epochs")
@@ -87,6 +87,8 @@ def train(args):
         embeds_rows = vocab_size
         word_idx2ngram_indices = None
         word_idx2corresp_ngram = None
+    if not os.path.isdir(args.save_dir[:6]):
+        os.mkdir(args.save_dir[:6])
     if not os.path.isdir(args.save_dir):
         os.mkdir(args.save_dir)
     model = Word2Vec(vocab_size=embeds_rows, embedding_size=args.e_dim)
@@ -109,7 +111,8 @@ def train(args):
                                            rand_window=args.rand_window)
         # it's also fine to shuffle here - just saving a few empty multiplications this way
         dataloader = DataLoader(dataset, batch_size=args.mb, shuffle=word_idx2ngram_indices is None)
-        total_batches = int(np.ceil(len(dataset) / args.mb))
+        # TOCHECK: is total_batches useful?
+        #total_batches = int(np.ceil(len(dataset) / args.mb))
         pbar = tqdm(dataloader)
         pbar.set_description("[Epoch {}]".format(epoch))
         for iword, owords in pbar:
@@ -132,4 +135,5 @@ def train(args):
 
 
 if __name__ == '__main__':
-    train(parse_args())
+    lan = 'de'
+    train(parse_args(lan))
