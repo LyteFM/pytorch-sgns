@@ -17,7 +17,6 @@ def parse_args():
     parser.add_argument('--corpus', type=str, default='./data/corpus.txt', help="corpus path")
     parser.add_argument('--unk', type=str, default='<UNK>', help="UNK token")
     parser.add_argument('--window', type=int, default=5, help="window size")
-    parser.add_argument('--rand_window', action='store_true', default=False, help="Random window size between 1 and --window")
     parser.add_argument('--max_vocab', type=int, default=20000,
                         help="maximum size of vocab. Infrequent words will be stripped when exceeding the size.")
     parser.add_argument('--min_freq', type=int, default=1,
@@ -28,12 +27,11 @@ def parse_args():
 
 class Preprocess(object):
 
-    def __init__(self, window=5, unk='<UNK>', data_dir='./data/', ngrams=False, rand_window=False):
+    def __init__(self, window=5, unk='<UNK>', data_dir='./data/', ngrams=False):
         self.window = window
         self.unk = unk  # must be the first char of the vocab, will always be zero in the embeddings.
         self.data_dir = data_dir
         self.use_ngrams = ngrams
-        self.rand_window = rand_window
 
         self.wc = {self.unk: 1}
         self.idx2word = []
@@ -51,9 +49,8 @@ class Preprocess(object):
         returs the context of the specified window size (possibly random) for the word at position i in a sentence
         """
         iword = sentence[i]
-        curr_window = randint(1, self.window) if self.rand_window else self.window
-        left = sentence[max(i - curr_window, 0): i]
-        right = sentence[i + 1: i + 1 + curr_window]
+        left = sentence[max(i - self.window, 0): i]
+        right = sentence[i + 1: i + 1 + self.window]
         return iword, [self.unk for _ in range(self.window - len(left))] + left + right + [self.unk for _ in range(self.window - len(right))]
 
     def build(self, filepath, max_vocab=20000, min_freq=1):
@@ -141,6 +138,6 @@ class Preprocess(object):
 
 if __name__ == '__main__':
     args = parse_args()
-    preprocess = Preprocess(window=args.window, unk=args.unk, data_dir=args.data_dir, ngrams=args.ngrams, rand_window=args.rand_window)
+    preprocess = Preprocess(window=args.window, unk=args.unk, data_dir=args.data_dir, ngrams=args.ngrams)
     preprocess.build(args.vocab, max_vocab=args.max_vocab, min_freq=args.min_freq)
     preprocess.convert(args.corpus)
