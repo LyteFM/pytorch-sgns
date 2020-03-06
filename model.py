@@ -77,7 +77,7 @@ class SGNS(nn.Module):
         if self.use_weights:
             weights = self.word_freqs[neg_mask]
             # Raising unigram frequency to power of 3/4 seems to yield best results, subwords paper used sqrt instead
-            wf = np.sqrt(weights) if self.use_ngrams is None else np.power(weights, 0.75)
+            wf = np.power(weights, 0.75)  # p.sqrt(weights) if self.use_ngrams else
             wf = wf / wf.sum()
             self.weights = t.from_numpy(wf)
         if verbose:
@@ -89,10 +89,7 @@ class SGNS(nn.Module):
         else:
             neg_choice = FT(batch_size, context_size * self.n_negs).uniform_(0, self.neg_corpus - 1).long()
         neg_words = self.neg_corpus[neg_choice]
-        if self.use_ngrams:
-            return neg_words
-        else:
-            return self.word_idx2ngram_idx[neg_words]
+        return self.word_idx2ngram_idx[neg_words] if self.use_ngrams else neg_words
 
     def forward(self, iword, owords):
         """

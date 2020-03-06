@@ -27,6 +27,7 @@ def parse_args(lan):
     parser.add_argument('--conti', action='store_true', help="continue learning")
     parser.add_argument('--weights', action='store_true', help="use weights for negative sampling")
     parser.add_argument('--cuda', action='store_true', help="use CUDA")
+    parser.add_argument('--rand_window', action='store_true', default=False, help="Random window size for each epoch")
     parser.add_argument('--ngrams', action='store_true', default=False, help="use ngrams for training")
     parser.add_argument('--loss', type=str, default='sigmoid', help="specify loss function: sigmoid or logistic")
     parser.add_argument('--lr', type=float, default=1e-3, help="learning rate")
@@ -41,8 +42,8 @@ class PermutedSubsampledCorpus(Dataset):
     Then the corpus is permuted and then sorted by ngram length to speed up training.
     """
 
-    def __init__(self, datapath, ws=None, ngram_list=None):
-        data: list = pickle.load(open(datapath, 'rb'))
+    def __init__(self, datapath, ws=None, ngram_list=None, rand_window=False):
+        data: list = [pair for pair in pickle.load(open(datapath, 'rb')) if pair[0] != 0]
         if ws is not None:
             self.data = []
             for iword, owords in data:
@@ -53,6 +54,13 @@ class PermutedSubsampledCorpus(Dataset):
         if ngram_list is not None:
             random.shuffle(self.data)
             self.data.sort(key=lambda x: len(ngram_list[x[0]]))
+        if rand_window:
+            window_size = len(self.data[0][1])/2
+            clips = np.random.randint(0, window_size, size=len(self.data))
+            for i, clip in enumerate(clips):
+                if clip > 0:
+                    self.data[i][1][:clip] = [0] * clip
+                    self.data[i][1][-clip:] = [0] * clip
 
     def __len__(self):
         return len(self.data)
@@ -99,8 +107,9 @@ def train(args):
     for epoch in range(1, args.epoch + 1):
         total_loss = 0
         sgns.sample_neg_corpus()
-        dataset = PermutedSubsampledCorpus(os.path.join(args.data_dir, 'train.dat'), ngram_list=word_idx2ngram_indices)
-        # todo: it's also fine to shuffle here, just saving a few empty multiplications this way
+        dataset = PermutedSubsampledCorpus(os.path.join(args.data_dir, 'train.dat'), ngram_list=word_idx2ngram_indices,
+                                           rand_window=args.rand_window)
+        # it's also fine to shuffle here - just saving a few empty multiplications this way
         dataloader = DataLoader(dataset, batch_size=args.mb, shuffle=word_idx2ngram_indices is None)
         # TOCHECK: is total_batches useful?
         #total_batches = int(np.ceil(len(dataset) / args.mb))
