@@ -12,18 +12,17 @@ import os
 
 
 # Change here. todo: build CLI
-selected_corpus = 'ud' # 'treebank' # 
-ud_lang = 'it' # 'en' # 'de' #  
-ud_mode = 'train' #  'test' # 'dev' #     
-            
+ud_lang = 'de' # 'en' # 'it' #
+ud_mode = 'train' #  'test' # 'dev' #
+
 comm = {'de': None, 'en': None, 'it':'#'}
-   
-    
+
+
 if not os.path.exists('data'):
     os.mkdir('data')
 if not os.path.exists(f'data/{ud_lang}'):
     os.mkdir(f'data/{ud_lang}')
-    
+
 
 sents = []
 
@@ -51,5 +50,3 @@ print('got corpus with sentences: ', len(sents))
 with open(f'data/{ud_lang}/corpus_{ud_mode}.txt', 'w') as f:
     for s in sents:
         f.write(' '.join(s) + '\n')
-        
-

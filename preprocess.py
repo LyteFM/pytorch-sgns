@@ -144,7 +144,7 @@ class Preprocess(object):
 
 
 if __name__ == '__main__':
-    lan = 'de'
+    languages = 'de'
     dataset = 'train'
     args = parse_args(lan, dataset)
     preprocess = Preprocess(window=args.window, unk=args.unk, data_dir=args.data_dir, ngrams=args.ngrams, rand_window=args.rand_window)
