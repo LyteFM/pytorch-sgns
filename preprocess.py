@@ -37,7 +37,7 @@ class Preprocess(object):
         self.data_dir = data_dir
         self.use_ngrams = ngrams
 
-        self.wc = {self.unk: 1}
+        self.wc = {self.unk: 0}
         self.idx2word = []
         self.word2idx = dict()
         self.vocab = set()
@@ -76,6 +76,10 @@ class Preprocess(object):
         self.idx2word = [self.unk] + sorted(filter(lambda x: self.wc[x] >= min_freq, self.wc),
                                             key=self.wc.get, reverse=True)[:max_vocab - 1]
         print("with max size", max_vocab, "and min freq", min_freq, "vocab now has", len(self.idx2word), "words.")
+        if self.wc[self.unk] > 0:
+            print('WARN: unknown character may not be included in corpus!')
+        else:
+            self.wc[self.unk] = 1  # avoid 0-div error
         self.word2idx = {self.idx2word[idx]: idx for idx, _ in enumerate(self.idx2word)}
         self.vocab = set([word for word in self.word2idx])
 
@@ -141,9 +145,9 @@ class Preprocess(object):
 
 
 if __name__ == '__main__':
-    lan = 'de'
-    dataset = 'train'
-    args = parse_args(lan, dataset)
-    preprocess = Preprocess(window=args.window, unk=args.unk, data_dir=args.data_dir, ngrams=args.ngrams)
-    preprocess.build(args.vocab, max_vocab=args.max_vocab, min_freq=args.min_freq)
-    preprocess.convert(args.corpus)
+    for lan in ['de', 'en', 'it']:
+        dataset = 'train'
+        args = parse_args(lan, dataset)
+        preprocess = Preprocess(window=args.window, unk=args.unk, data_dir=args.data_dir, ngrams=args.ngrams)
+        preprocess.build(args.vocab, max_vocab=args.max_vocab, min_freq=args.min_freq)
+        preprocess.convert(args.corpus)
