@@ -127,13 +127,16 @@ def train(args):
         # only want the actual words :)
         ngram_idx2vec = model.ivectors.weight.data.cpu().numpy()
         idx2vec = ngram_idx2vec[word_idx2corresp_ngram]
+        pickle.dump(idx2vec, open(os.path.join(args.data_dir, 'idx2vec_ngrams.dat'), 'wb'))
+        t.save(sgns.state_dict(), os.path.join(args.save_dir, '{}_ngrams.pt'.format(args.name)))
+        t.save(optim.state_dict(), os.path.join(args.save_dir, '{}_ngrams.optim.pt'.format(args.name)))
     else:
         idx2vec = model.ivectors.weight.data.cpu().numpy()
-    pickle.dump(idx2vec, open(os.path.join(args.data_dir, 'idx2vec.dat'), 'wb'))
-    t.save(sgns.state_dict(), os.path.join(args.save_dir, '{}.pt'.format(args.name)))
-    t.save(optim.state_dict(), os.path.join(args.save_dir, '{}.optim.pt'.format(args.name)))
+        pickle.dump(idx2vec, open(os.path.join(args.data_dir, 'idx2vec.dat'), 'wb'))
+        t.save(sgns.state_dict(), os.path.join(args.save_dir, '{}.pt'.format(args.name)))
+        t.save(optim.state_dict(), os.path.join(args.save_dir, '{}.optim.pt'.format(args.name)))
 
 
 if __name__ == '__main__':
-    lan = 'de'
-    train(parse_args(lan))
+    for lan in ['de','en','it']:
+        train(parse_args(lan))

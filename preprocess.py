@@ -145,9 +145,9 @@ class Preprocess(object):
 
 
 if __name__ == '__main__':
-    lan = 'de'
-    dataset = 'train'
-    args = parse_args(lan, dataset)
-    preprocess = Preprocess(window=args.window, unk=args.unk, data_dir=args.data_dir, ngrams=args.ngrams)
-    preprocess.build(args.vocab, max_vocab=args.max_vocab, min_freq=args.min_freq)
-    preprocess.convert(args.corpus)
+    for lan in ['de', 'en', 'it']:
+        dataset = 'train'
+        args = parse_args(lan, dataset)
+        preprocess = Preprocess(window=args.window, unk=args.unk, data_dir=args.data_dir, ngrams=args.ngrams)
+        preprocess.build(args.vocab, max_vocab=args.max_vocab, min_freq=args.min_freq)
+        preprocess.convert(args.corpus)
