@@ -42,7 +42,6 @@ for ud_lang in ['de', 'en', 'it']:
         if '|' not in w[1] and (len(w[1]) == 1 or any(c.isalnum() for c in w[1])):
             curr.append(w[1])
             word2class[w[1]] = w[3]
-    print(word2class)
     print('got corpus with sentences: ', len(sents))
 
 
