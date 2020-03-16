@@ -111,8 +111,6 @@ def train(args):
                                            rand_window=args.rand_window)
         # it's also fine to shuffle here - just saving a few empty multiplications this way
         dataloader = DataLoader(dataset, batch_size=args.mb, shuffle=word_idx2ngram_indices is None)
-        # TOCHECK: is total_batches useful?
-        #total_batches = int(np.ceil(len(dataset) / args.mb))
         pbar = tqdm(dataloader)
         pbar.set_description("[Epoch {}]".format(epoch))
         for iword, owords in pbar:

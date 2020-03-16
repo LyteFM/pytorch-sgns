@@ -7,7 +7,6 @@ import argparse
 from collections import defaultdict
 
 from nltk.util import everygrams
-from random import randint
 
 
 def parse_args(lan, dataset):
@@ -19,7 +18,7 @@ def parse_args(lan, dataset):
     parser.add_argument('--data_dir', type=str, default=f'./data/{lan}/', help="data directory path")
     parser.add_argument('--vocab', type=str, default=f'./data/{lan}/corpus_{dataset}.txt', help="corpus path for building vocab")
     parser.add_argument('--corpus', type=str, default=f'./data/{lan}/corpus_{dataset}.txt', help="corpus path")
-    parser.add_argument('--unk', type=str, default='<UNK>', help="UNK token")
+    parser.add_argument('--unk', type=str, default='<UNK>', help="UNK token, should be a single character when using ngrams")
     parser.add_argument('--window', type=int, default=5, help="window size")
     parser.add_argument('--max_vocab', type=int, default=20000,
                         help="maximum size of vocab. Infrequent words will be stripped when exceeding the size.")

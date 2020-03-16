@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Sun Mar  1 12:16:00 2020
-
-@author: fynn
-"""
 
 import numpy as np
 import requests
