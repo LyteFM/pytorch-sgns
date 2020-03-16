@@ -152,19 +152,19 @@ email
 e-mail
 site
 website
-@
 IT
 Attached
 document
 computer
+@
 
 lunch
 dinner
 breakfast
-menu
-restaurant
 eat
 meal
+menu
+restaurant
 buy
 store
 shop
